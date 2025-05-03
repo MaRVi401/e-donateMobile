@@ -1,70 +1,122 @@
 import 'dart:io';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../models/donation.dart';
 
 class ApiService {
-  final String baseUrl = "http://127.0.0.1:8000";
+  final String baseUrl = "http://10.0.2.2:8000";
 
   Future<List<Donation>> getAllDonations() async {
-    final response = await http.get(Uri.parse('$baseUrl/api/donations'));
-    if (response.statusCode == 200) {
-      final List<dynamic> data = json.decode(response.body);
-      return data.map((item) => Donation.fromJson(item)).toList();
-    } else {
-      throw Exception('Failed to load donations');
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/donations'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((item) => Donation.fromJson(item)).toList();
+      } else {
+        throw Exception('Failed to load donations: ${response.reasonPhrase}');
+      }
+    } catch (e) {
+      throw Exception('Network error: $e');
     }
   }
 
-  Future<Donation> createDonation(Donation donation, File imageFile) async {
-    var request =
-        http.MultipartRequest('POST', Uri.parse('$baseUrl/api/donations'));
+  Future<Donation> createDonation(Donation donation, File? imageFile) async {
+    final uri = Uri.parse('$baseUrl/api/donations');
+    final request = http.MultipartRequest('POST', uri);
 
-    request.fields['nama'] = donation.nama;
-    request.fields['deskripsi'] = donation.deskripsi;
-    request.fields['target_terkumpul'] = donation.targetTerkumpul.toString();
+    // Tambahkan field hanya jika memiliki nilai
+    if (donation.nama.isNotEmpty) {
+      request.fields['nama'] = donation.nama;
+    }
+    if (donation.deskripsi.isNotEmpty) {
+      request.fields['deskripsi'] = donation.deskripsi;
+    }
+    if (donation.targetTerkumpul > 0) {
+      request.fields['target_terkumpul'] = donation.targetTerkumpul.toString();
+    }
 
-    final image = await http.MultipartFile.fromPath('gambar', imageFile.path);
-    request.files.add(image);
+    // Tambahkan gambar jika ada
+    if (imageFile != null) {
+      final imageBytes = await imageFile.readAsBytes();
+      final multipartImage = http.MultipartFile.fromBytes(
+        'gambar',
+        imageBytes,
+        filename: imageFile.path.split('/').last,
+      );
+      request.files.add(multipartImage);
+    }
 
-    final response = await request.send();
-    final responseData = json.decode(await response.stream.bytesToString());
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      return Donation.fromJson(responseData);
+      return Donation.fromJson(json.decode(response.body));
     } else {
-      throw Exception('Failed to create donation');
+      try {
+        final errorData = json.decode(response.body);
+        throw Exception(
+            'Create failed: ${errorData['message'] ?? 'Unknown error'}');
+      } catch (e) {
+        throw Exception('Create failed with status ${response.statusCode}');
+      }
     }
   }
 
   Future<Donation> updateDonation(Donation donation, {File? imageFile}) async {
-    var request = http.MultipartRequest(
-        'POST', Uri.parse('$baseUrl/api/donations/${donation.id}'));
+    final uri = Uri.parse('$baseUrl/api/donations/${donation.id}');
+    final request = http.MultipartRequest('POST', uri);
 
-    request.fields['nama'] = donation.nama;
-    request.fields['deskripsi'] = donation.deskripsi;
-    request.fields['target_terkumpul'] = donation.targetTerkumpul.toString();
+    // Spoof method PUT
     request.fields['_method'] = 'PUT';
 
-    if (imageFile != null) {
-      final image = await http.MultipartFile.fromPath('gambar', imageFile.path);
-      request.files.add(image);
+    // Tambahkan field hanya jika memiliki nilai
+    if (donation.nama.isNotEmpty) {
+      request.fields['nama'] = donation.nama;
+    }
+    if (donation.deskripsi.isNotEmpty) {
+      request.fields['deskripsi'] = donation.deskripsi;
+    }
+    if (donation.targetTerkumpul > 0) {
+      request.fields['target_terkumpul'] = donation.targetTerkumpul.toString();
     }
 
-    final response = await request.send();
-    final responseData = json.decode(await response.stream.bytesToString());
+    // Tambahkan gambar jika ada
+    if (imageFile != null) {
+      final imageBytes = await imageFile.readAsBytes();
+      final multipartImage = http.MultipartFile.fromBytes(
+        'gambar',
+        imageBytes,
+        filename: imageFile.path.split('/').last,
+      );
+      request.files.add(multipartImage);
+    }
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      return Donation.fromJson(responseData);
+      return Donation.fromJson(json.decode(response.body));
     } else {
-      throw Exception('Failed to update donation');
+      try {
+        final errorData = json.decode(response.body);
+        throw Exception(
+            'Update failed: ${errorData['message'] ?? 'Unknown error'}');
+      } catch (e) {
+        throw Exception('Update failed with status ${response.statusCode}');
+      }
     }
   }
 
   Future<void> deleteDonation(int id) async {
     final response = await http.delete(Uri.parse('$baseUrl/api/donations/$id'));
     if (response.statusCode != 200) {
-      throw Exception('Failed to delete donation');
+      try {
+        final errorData = json.decode(response.body);
+        throw Exception(
+            'Delete failed: ${errorData['message'] ?? 'Unknown error'}');
+      } catch (e) {
+        throw Exception('Delete failed with status ${response.statusCode}');
+      }
     }
   }
 }
