@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import '../models/donation.dart';
 
 class ApiService {
-  final String baseUrl = "http://10.0.2.2:8000";
+  final String baseUrl = "https://dalitmayaan.com";
 
   Future<List<Donation>> getAllDonations() async {
     try {
