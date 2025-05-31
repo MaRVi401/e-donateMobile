@@ -21,7 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('CMS Donasi')),
+      appBar: AppBar(title: Text('CMS Donasi Dalit')),
       body: FutureBuilder<List<Donation>>(
         future: futureDonations,
         builder: (context, snapshot) {
